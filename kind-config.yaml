@@ -10,7 +10,8 @@ nodes:
       kubeletExtraArgs:
         node-labels: "ingress-ready=true"
   extraPortMappings:
-  - containerPort: 80
+  # Expose Envoy Gateway (bestai-gateway) HTTP via NodePort 30081 -> host 80
+  - containerPort: 30081
     hostPort: 80
     protocol: TCP
   - containerPort: 443

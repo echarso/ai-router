@@ -204,6 +204,9 @@ kubectl apply -f k8s/openai-api-deployment.yaml
 print_info "📦 Deploying Gateway (bestai.se)..."
 kubectl apply -f k8s/envoy-gateway.yaml
 
+print_info "📦 Exposing bestai-gateway on host :80 (NodePort 30081)..."
+kubectl apply -f k8s/bestai-gateway-nodeport.yaml
+
 print_warn "⚠️  Skipping k8s/aigateway-routing.yaml (deprecated)."
 print_warn "   AI routing is deployed under k8s/ai/* via AIGatewayRoute in namespace 'ai'."
 
@@ -268,8 +271,8 @@ print_info ""
 print_step "🌐 Step 7.5: Setting up Envoy Gateway access..."
 
 if [ -f "./setup-envoy-access.sh" ]; then
-    print_info "📡 Configuring Envoy Gateway port forwarding..."
-    ./setup-envoy-access.sh
+    print_warn "⚠️  Skipping setup-envoy-access.sh (port-forward) — using NodePort mapping instead."
+    print_warn "   bestai.se should be reachable on host port 80 via kind extraPortMappings."
     print_info ""
 else
     print_warn "⚠️  setup-envoy-access.sh not found. Envoy Gateway access may need manual setup."

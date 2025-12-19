@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bestai-gateway-nodeport
+  namespace: price-runner
+  labels:
+    app: bestai-gateway-nodeport
+spec:
+  type: NodePort
+  # Envoy Gateway creates the data-plane pods for the Gateway.
+  # Expose the HTTP listener via a fixed NodePort so kind can map host port 80 -> NodePort.
+  selector:
+    gateway.envoyproxy.io/owning-gateway-name: bestai-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: 30081
+
