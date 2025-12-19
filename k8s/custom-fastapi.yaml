@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: custom-fastapi
+  namespace: price-runner
+  labels:
+    app: custom-fastapi
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: custom-fastapi
+  template:
+    metadata:
+      labels:
+        app: custom-fastapi
+    spec:
+      containers:
+        - name: custom-fastapi
+          image: price-runner-custom-fastapi:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: custom-fastapi
+  namespace: price-runner
+  labels:
+    app: custom-fastapi
+spec:
+  type: ClusterIP
+  selector:
+    app: custom-fastapi
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+

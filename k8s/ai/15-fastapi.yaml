@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fast-api
+  namespace: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fast-api
+  template:
+    metadata:
+      labels:
+        app: fast-api
+    spec:
+      containers:
+        - name: fast-api
+          image: price-runner-custom-fastapi:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MODEL_ID
+              value: fast-api
+          ports:
+            - containerPort: 8000
+              name: http
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fast-api
+  namespace: ai
+spec:
+  type: ClusterIP
+  selector:
+    app: fast-api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+

@@ -1,0 +1,178 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-db-schema
+  namespace: price-runner
+data:
+  init-db.sql: |
+    -- Platform Database Schema
+    -- NOTE: This ConfigMap is generated from repo init-db.sql for k8s Job usage.
+    \c platform_db;
+    CREATE TABLE IF NOT EXISTS organizations (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL UNIQUE,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS projects (
+        id SERIAL PRIMARY KEY,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(organization_id, name)
+    );
+    CREATE TABLE IF NOT EXISTS api_keys (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        reference_name VARCHAR(255) NOT NULL,
+        created_by VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
+        revoked_at TIMESTAMP,
+        is_active BOOLEAN DEFAULT true,
+        UNIQUE(project_id, reference_name)
+    );
+    CREATE TABLE IF NOT EXISTS rate_limit_policies (
+        id SERIAL PRIMARY KEY,
+        api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+        policy_name VARCHAR(255) NOT NULL,
+        requests_per_second INTEGER,
+        requests_per_minute INTEGER,
+        requests_per_hour INTEGER,
+        burst_limit INTEGER,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(api_key_id, policy_name)
+    );
+    CREATE TABLE IF NOT EXISTS traffic_policies (
+        id SERIAL PRIMARY KEY,
+        api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+        policy_name VARCHAR(255) NOT NULL,
+        daily_quota INTEGER,
+        monthly_quota INTEGER,
+        daily_cost_usd NUMERIC,
+        monthly_cost_usd NUMERIC,
+        throttling_rules JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(api_key_id, policy_name)
+    );
+    ALTER TABLE traffic_policies
+      ADD COLUMN IF NOT EXISTS daily_cost_usd NUMERIC;
+    ALTER TABLE traffic_policies
+      ADD COLUMN IF NOT EXISTS monthly_cost_usd NUMERIC;
+    CREATE TABLE IF NOT EXISTS user_organizations (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL,
+        organization_id INTEGER NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL CHECK (role IN ('OA', 'PA')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, organization_id, role)
+    );
+    CREATE TABLE IF NOT EXISTS user_projects (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        role VARCHAR(50) NOT NULL CHECK (role IN ('PA')),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, project_id)
+    );
+    CREATE TABLE IF NOT EXISTS audit_logs (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(255),
+        action VARCHAR(100) NOT NULL,
+        resource_type VARCHAR(50),
+        resource_id INTEGER,
+        details JSONB,
+        ip_address VARCHAR(45),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_projects_org ON projects(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_api_keys_project ON api_keys(project_id);
+    CREATE INDEX IF NOT EXISTS idx_rate_limit_policies_api_key ON rate_limit_policies(api_key_id);
+    CREATE INDEX IF NOT EXISTS idx_traffic_policies_api_key ON traffic_policies(api_key_id);
+    CREATE INDEX IF NOT EXISTS idx_user_orgs_user ON user_organizations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_orgs_org ON user_organizations(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_user_projects_user ON user_projects(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_projects_project ON user_projects(project_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_user ON audit_logs(user_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_created ON audit_logs(created_at);
+
+    ALTER TABLE api_keys
+      ADD COLUMN IF NOT EXISTS organization_id INTEGER;
+    ALTER TABLE api_keys
+      ADD COLUMN IF NOT EXISTS expiration_days INTEGER;
+
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM information_schema.table_constraints
+        WHERE constraint_name = 'api_keys_organization_id_fkey'
+          AND table_name = 'api_keys'
+      ) THEN
+        ALTER TABLE api_keys
+          ADD CONSTRAINT api_keys_organization_id_fkey
+          FOREIGN KEY (organization_id) REFERENCES organizations(id) ON DELETE CASCADE;
+      END IF;
+    END $$;
+
+    CREATE TABLE IF NOT EXISTS api_key_projects (
+      api_key_id INTEGER NOT NULL REFERENCES api_keys(id) ON DELETE CASCADE,
+      project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (api_key_id, project_id)
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_api_key_projects_unique_project
+    ON api_key_projects(project_id);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_api_keys_unique_ref_per_org
+    ON api_keys(organization_id, reference_name);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_oa_per_user
+    ON user_organizations(user_id)
+    WHERE role = 'OA';
+    CREATE INDEX IF NOT EXISTS idx_api_keys_org ON api_keys(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_api_key_projects_project ON api_key_projects(project_id);
+    CREATE INDEX IF NOT EXISTS idx_api_key_projects_api_key ON api_key_projects(api_key_id);
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: platform-db-migrate
+  namespace: price-runner
+spec:
+  backoffLimit: 3
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: migrate
+          image: postgres:15-alpine
+          env:
+            - name: PGHOST
+              value: postgres-platform
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              value: platform_db
+            - name: PGUSER
+              value: platform_user
+            - name: PGPASSWORD
+              value: platform_pass
+          volumeMounts:
+            - name: schema
+              mountPath: /schema
+          command: ["sh", "-c"]
+          args:
+            - |
+              echo "Waiting for postgres-platform..."
+              for i in $(seq 1 60); do
+                pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" -d "$PGDATABASE" && break
+                sleep 2
+              done
+              echo "Applying schema..."
+              psql -f /schema/init-db.sql
+      volumes:
+        - name: schema
+          configMap:
+            name: platform-db-schema

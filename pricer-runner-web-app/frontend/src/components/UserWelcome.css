@@ -1,0 +1,45 @@
+.user-welcome {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 10px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.user-icon {
+  font-size: 18px;
+}
+
+.username {
+  font-weight: 600;
+  color: inherit;
+}
+
+.user-roles {
+  font-size: 12px;
+  opacity: 0.8;
+  color: inherit;
+}
+
+.logout-button {
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  color: inherit;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.logout-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}

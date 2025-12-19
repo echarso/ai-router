@@ -1,0 +1,153 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: ai-gateway
+spec:
+  # Envoy Gateway controller (data plane) + Envoy AI Gateway CRDs (AI routing)
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyProxy
+metadata:
+  name: envoy-ai-gateway
+  namespace: ai
+spec:
+  telemetry:
+    accessLog:
+      settings:
+        - sinks:
+            - type: File
+              file:
+                path: /dev/stdout
+          format:
+            type: JSON
+            json:
+              genai_model_name: "%REQ(X-AI-EG-MODEL)%"
+              genai_backend_name: "%DYNAMIC_METADATA(io.envoy.ai_gateway:backend_name)%"
+              genai_tokens_input: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_input_token)%"
+              genai_tokens_output: "%DYNAMIC_METADATA(io.envoy.ai_gateway:llm_output_token)%"
+              response_code: "%RESPONSE_CODE%"
+              duration: "%DURATION%"
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ai-gateway
+  namespace: ai
+spec:
+  gatewayClassName: ai-gateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 1975
+      hostname: bestai.se
+      allowedRoutes:
+        namespaces:
+          from: Same
+  infrastructure:
+    parametersRef:
+      group: gateway.envoyproxy.io
+      kind: EnvoyProxy
+      name: envoy-ai-gateway
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: tinyllama
+  namespace: ai
+spec:
+  endpoints:
+    - fqdn:
+        hostname: tinyllama.ai.svc.cluster.local
+        port: 8000
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: fast-api
+  namespace: ai
+spec:
+  endpoints:
+    - fqdn:
+        hostname: fast-api.ai.svc.cluster.local
+        port: 8000
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: tinyllama
+  namespace: ai
+spec:
+  schema:
+    name: OpenAI
+    version: "v1"
+  backendRef:
+    name: tinyllama
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: fast-api
+  namespace: ai
+spec:
+  schema:
+    name: OpenAI
+    version: "v1"
+  backendRef:
+    name: fast-api
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIGatewayRoute
+metadata:
+  name: tinyllama-route
+  namespace: ai
+spec:
+  parentRefs:
+    - name: ai-gateway
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    # Route to FastAPI when user selects model "fast-api"
+    - matches:
+        - headers:
+            - name: x-ai-eg-model
+              type: Exact
+              value: fast-api
+      backendRefs:
+        - name: fast-api
+          namespace: ai
+      timeouts:
+        request: 120s
+    - matches:
+        - headers:
+            - name: x-ai-eg-model
+              type: RegularExpression
+              value: .*
+      backendRefs:
+        - name: tinyllama
+          namespace: ai
+      timeouts:
+        request: 120s
+  llmRequestCosts:
+    - metadataKey: llm_input_token
+      type: InputToken
+    - metadataKey: llm_output_token
+      type: OutputToken
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: ai-buffer
+  namespace: ai
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+  connection:
+    bufferLimit: 50Mi
+

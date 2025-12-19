@@ -1,0 +1,172 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-init-script
+  namespace: price-runner
+data:
+  keycloak-init.sh: |
+    #!/bin/sh
+    set -e
+
+    KEYCLOAK_URL="${KEYCLOAK_URL:-http://keycloak:8080/keycloak}"
+    KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:-admin}"
+    KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:-admin}"
+    REALM_NAME="${REALM_NAME:-bestai}"
+    DEFAULT_ORG_NAME="${DEFAULT_ORG_NAME:-volvo}"
+
+    echo "Waiting for Keycloak..."
+    for i in $(seq 1 120); do
+      curl -fsS "${KEYCLOAK_URL}/realms/master" >/dev/null 2>&1 && break
+      sleep 2
+    done
+
+    echo "Getting admin token..."
+    ADMIN_TOKEN_RESPONSE=$(curl -s -X POST "${KEYCLOAK_URL}/realms/master/protocol/openid-connect/token" \
+      -H "Content-Type: application/x-www-form-urlencoded" \
+      -d "grant_type=password" \
+      -d "client_id=admin-cli" \
+      -d "username=${KEYCLOAK_ADMIN}" \
+      -d "password=${KEYCLOAK_ADMIN_PASSWORD}")
+    ADMIN_TOKEN=$(echo "$ADMIN_TOKEN_RESPONSE" | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
+    if [ -z "$ADMIN_TOKEN" ]; then
+      echo "Failed to get admin token"
+      exit 1
+    fi
+
+    echo "Ensuring realm ${REALM_NAME} exists..."
+    REALM_CHECK=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}" -H "Authorization: Bearer ${ADMIN_TOKEN}" || true)
+    if echo "$REALM_CHECK" | grep -q '"realm"'; then
+      echo "Realm exists"
+    else
+      curl -s -X POST "${KEYCLOAK_URL}/admin/realms" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"realm\":\"${REALM_NAME}\",\"enabled\":true}" >/dev/null
+      echo "Realm created"
+    fi
+
+    echo "Creating roles..."
+    for role in system-admin system-owner organization-admin project-admin simple-user; do
+      curl -s -X POST "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/roles" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"${role}\"}" >/dev/null 2>&1 || true
+    done
+
+    echo "Ensuring client platform-frontend exists..."
+    CLIENT_CHECK=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/clients?clientId=platform-frontend" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}")
+    CLIENT_ID=$(echo "$CLIENT_CHECK" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
+    if [ -z "$CLIENT_ID" ]; then
+      curl -s -X POST "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/clients" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"clientId\":\"platform-frontend\",\"enabled\":true,\"publicClient\":true,\"protocol\":\"openid-connect\",\"standardFlowEnabled\":true,\"directAccessGrantsEnabled\":true,\"redirectUris\":[\"http://bestai.se/*\",\"http://localhost:5005/*\"],\"webOrigins\":[\"*\"]}" >/dev/null
+      CLIENT_CHECK=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/clients?clientId=platform-frontend" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}")
+      CLIENT_ID=$(echo "$CLIENT_CHECK" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
+    fi
+
+    echo "Ensuring groups mapper exists..."
+    MAPPERS=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/clients/${CLIENT_ID}/protocol-mappers/models" \
+      -H "Authorization: Bearer ${ADMIN_TOKEN}")
+    if echo "$MAPPERS" | grep -q '"name":"groups"'; then
+      echo "Groups mapper already exists"
+    else
+      curl -s -X POST "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/clients/${CLIENT_ID}/protocol-mappers/models" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"groups\",\"protocol\":\"openid-connect\",\"protocolMapper\":\"oidc-group-membership-mapper\",\"consentRequired\":false,\"config\":{\"full.path\":\"false\",\"id.token.claim\":\"true\",\"access.token.claim\":\"true\",\"userinfo.token.claim\":\"true\",\"claim.name\":\"groups\",\"jsonType.label\":\"String\"}}" >/dev/null
+      echo "Groups mapper created"
+    fi
+
+    create_user() {
+      USERNAME="$1"
+      PASSWORD="$2"
+      ROLE="$3"
+      echo "Ensuring user $USERNAME..."
+      U=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users?username=${USERNAME}" -H "Authorization: Bearer ${ADMIN_TOKEN}")
+      UID=$(echo "$U" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
+      if [ -z "$UID" ]; then
+        curl -s -X POST "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users" \
+          -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+          -H "Content-Type: application/json" \
+          -d "{\"username\":\"${USERNAME}\",\"enabled\":true,\"emailVerified\":true}" >/dev/null
+        U=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users?username=${USERNAME}" -H "Authorization: Bearer ${ADMIN_TOKEN}")
+        UID=$(echo "$U" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
+      fi
+      curl -s -X PUT "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users/${UID}/reset-password" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"type\":\"password\",\"value\":\"${PASSWORD}\",\"temporary\":false}" >/dev/null
+
+      RID=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/roles/${ROLE}" -H "Authorization: Bearer ${ADMIN_TOKEN}" | grep -o '"id":"[^"]*' | head -1 | cut -d'"' -f4)
+      curl -s -X POST "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users/${UID}/role-mappings/realm" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "[{\"id\":\"${RID}\",\"name\":\"${ROLE}\"}]" >/dev/null
+      echo "$UID"
+    }
+
+    SO_UID=$(create_user system-owner SO system-owner)
+    SA_UID=$(create_user system-admin SA system-admin)
+    OA_UID=$(create_user org-admin OA organization-admin)
+
+    echo "Ensuring org group ${DEFAULT_ORG_NAME} exists..."
+    GROUPS=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/groups" -H "Authorization: Bearer ${ADMIN_TOKEN}")
+    GID=$(echo "$GROUPS" | grep -o "\"id\":\"[^\"]*\"[^}]*\"name\":\"${DEFAULT_ORG_NAME}\"" | head -1 | cut -d'"' -f4)
+    if [ -z "$GID" ]; then
+      curl -s -X POST "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/groups" \
+        -H "Authorization: Bearer ${ADMIN_TOKEN}" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"${DEFAULT_ORG_NAME}\"}" >/dev/null
+      GROUPS=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/groups" -H "Authorization: Bearer ${ADMIN_TOKEN}")
+      GID=$(echo "$GROUPS" | grep -o "\"id\":\"[^\"]*\"[^}]*\"name\":\"${DEFAULT_ORG_NAME}\"" | head -1 | cut -d'"' -f4)
+    fi
+
+    echo "Assigning org-admin to org group..."
+    CUR=$(curl -s -X GET "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users/${OA_UID}/groups" -H "Authorization: Bearer ${ADMIN_TOKEN}")
+    for gid in $(echo "$CUR" | grep -o '"id":"[^"]*' | cut -d'"' -f4); do
+      curl -s -X DELETE "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users/${OA_UID}/groups/${gid}" -H "Authorization: Bearer ${ADMIN_TOKEN}" >/dev/null 2>&1 || true
+    done
+    curl -s -X PUT "${KEYCLOAK_URL}/admin/realms/${REALM_NAME}/users/${OA_UID}/groups/${GID}" -H "Authorization: Bearer ${ADMIN_TOKEN}" -H "Content-Type: application/json" -d "{}" >/dev/null
+
+    echo "Keycloak init complete."
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: keycloak-init
+  namespace: price-runner
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: init
+          image: curlimages/curl:8.5.0
+          command: ["sh", "-c"]
+          args:
+            - |
+              chmod +x /scripts/keycloak-init.sh
+              /scripts/keycloak-init.sh
+          env:
+            - name: KEYCLOAK_URL
+              value: http://keycloak:8080/keycloak
+            - name: KEYCLOAK_ADMIN
+              value: admin
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: admin
+            - name: REALM_NAME
+              value: bestai
+            - name: DEFAULT_ORG_NAME
+              value: volvo
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: keycloak-init-script
+            defaultMode: 0775

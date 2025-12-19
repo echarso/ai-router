@@ -1,0 +1,31 @@
+1.1 System Administrator (SA)
+A System Administrator has the following responsibilities:
+- View all organization users in the UX (the users are in Keycloak).
+- Through the UI assign users to the correct organization; this should be reflected in backend systems.
+- Create in the UI organization users and save them in Keycloak and assign them the Organization Administrator (OA) role.
+- Assign newly created OAs to an organization during user creation.
+- Be in position to create an organization via the UI and reflect this in the backend systems.
+
+1.2 Organization Administrator (OA)
+An Organization Administrator:
+- Must belong to exactly one organization.
+- Can create and manage Projects within their organization. This should happen from the UI.
+- From the UI can create API Keys for their organization. Reflect this to OpenBao.
+- From the UI can assign API Keys to one or more projects within the same organization.
+
+When an OA creates an API Key, the UI must allow configuration of the following fields:
+- Reference name
+- Expiration (in days)
+- Rate limits
+- Traffic policies
+
+So the relevant above entries in the UI are needed.
+
+3 Persistence
+All API Key configurations and relations with projects and organizations must be stored in:
+- OpenBao (for secret management)
+- PostgreSQL (for metadata and relational data)
+
+Users with the Organization Administrator role must have their organization name included as a group claim in their token
+- The organization claim must be reflected in the issued access token.
+- Backend services must rely on this token claim to determine organization context and authorization.

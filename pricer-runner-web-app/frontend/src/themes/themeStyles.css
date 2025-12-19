@@ -1,0 +1,99 @@
+/* Theme Variables - Black & White */
+.theme-bw {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f5f5f5;
+  --bg-tertiary: #e0e0e0;
+  --bg-body: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+  --text-primary: #000000;
+  --text-secondary: #333333;
+  --text-tertiary: #666666;
+  --accent-primary: #000000;
+  --accent-secondary: #ffffff;
+  --border-color: #000000;
+  --header-gradient: linear-gradient(135deg, #000000 0%, #333333 100%);
+  --button-gradient: linear-gradient(135deg, #000000 0%, #333333 100%);
+  --button-text: #ffffff;
+  --table-header: linear-gradient(135deg, #000000 0%, #333333 100%);
+  --success-color: #000000;
+  --hover-bg: #f0f0f0;
+  --shadow: rgba(0, 0, 0, 0.2);
+  --card-bg: #ffffff;
+}
+
+/* Theme Variables - Navy Blue */
+.theme-navy {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f0f4f8;
+  --bg-tertiary: #e1e8ed;
+  --bg-body: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  --text-primary: #1a365d;
+  --text-secondary: #2d3748;
+  --text-tertiary: #4a5568;
+  --accent-primary: #1e3a8a;
+  --accent-secondary: #3b82f6;
+  --border-color: #1e3a8a;
+  --header-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  --button-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  --button-text: #ffffff;
+  --table-header: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  --success-color: #1e3a8a;
+  --hover-bg: #e6f0ff;
+  --shadow: rgba(30, 58, 138, 0.3);
+  --card-bg: #ffffff;
+}
+
+/* Theme Variables - Modern Professional (Teal/Cyan) */
+.theme-modern {
+  --bg-primary: #ffffff;
+  --bg-secondary: #f0fdfa;
+  --bg-tertiary: #ccfbf1;
+  --bg-body: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  --text-primary: #0f172a;
+  --text-secondary: #1e293b;
+  --text-tertiary: #475569;
+  --accent-primary: #0d9488;
+  --accent-secondary: #14b8a6;
+  --border-color: #0d9488;
+  --header-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  --button-gradient: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  --button-text: #ffffff;
+  --table-header: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  --success-color: #059669;
+  --hover-bg: #e0f2fe;
+  --shadow: rgba(13, 148, 136, 0.3);
+  --card-bg: #ffffff;
+}
+
+/* Theme Variables - Noir Yellow (Black/Yellow) */
+.theme-noir {
+  --bg-primary: #0b0c10;
+  --bg-secondary: #12131a;
+  --bg-tertiary: #1a1c26;
+  --bg-body:
+    radial-gradient(circle at 18% 12%, rgba(246, 201, 14, 0.12), transparent 40%),
+    radial-gradient(circle at 78% 22%, rgba(246, 201, 14, 0.08), transparent 46%),
+    linear-gradient(135deg, #07080b 0%, #0d0f14 55%, #07080b 100%);
+  --text-primary: #f3f4f6;
+  --text-secondary: rgba(243, 244, 246, 0.86);
+  --text-tertiary: rgba(243, 244, 246, 0.65);
+  --accent-primary: #f6c90e;
+  --accent-secondary: #ffd84d;
+  --border-color: rgba(246, 201, 14, 0.45);
+  --header-gradient: linear-gradient(135deg, #0b0c10 0%, #0f1118 70%, rgba(246, 201, 14, 0.20) 140%);
+  --button-gradient: linear-gradient(135deg, #f6c90e 0%, #ffd84d 100%);
+  --button-text: #0b0c10;
+  --table-header: linear-gradient(135deg, #0b0c10 0%, #12131a 100%);
+  --table-header-text: #f3f4f6;
+  --success-color: #f6c90e;
+  --hover-bg: rgba(246, 201, 14, 0.10);
+  --shadow: rgba(246, 201, 14, 0.18);
+  --card-bg: rgba(18, 19, 26, 0.85);
+}
+
+/* Apply theme to body */
+body {
+  background: var(--bg-body, var(--bg-primary));
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
+}
+

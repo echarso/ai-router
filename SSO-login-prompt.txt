@@ -1,0 +1,224 @@
+You are building a multi-tenant platform for user authentication,
+role-based access control, and project-scoped API key management.
+
+The platform uses:
+- Keycloak for identity, SSO, users, roles, realms, and invitations
+- OpenBao for API key generation, policy enforcement, rotation,
+  traffic policies, rate limits, and auditing
+
+========================
+1. REALM & INITIALIZATION
+========================
+
+The system must use a single Keycloak Realm as the top-level identity boundary.
+
+A Realm represents:
+- The platform security domain
+- All users, roles, groups, and applications
+- All authentication and SSO configuration
+
+The System Owner (SO) is responsible for:
+- Creating the Realm during initial system bootstrap
+- Configuring:
+  - Roles
+  - Groups
+  - Clients
+  - Authentication flows
+- Performing all initialization either via:
+  - Keycloak Admin APIs
+  - Or a dedicated System Owner UI
+
+Realm name example: "api-platform"
+
+========================
+2. USER ROLES
+========================
+
+The system must support the following roles:
+
+1. System Owner (SO)
+   - Platform-level administrator
+   - Initializes and configures the Realm
+   - Invites Organization Admins (OAs) and Project Admins (PAs)
+   - Has global visibility across all organizations and projects
+
+2. Organization Admin (OA)
+   - Manages one or more organizations
+   - Creates projects
+   - Assigns Project Admins to projects
+   - Can create and manage API keys
+   - Can define and manage rate limits and traffic policies
+     for API keys within their organization
+   - Has full visibility into all API keys, policies,
+     and monitoring data within their organization
+
+3. Project Admin (PA)
+   - Assigned to one or more projects
+   - Can create and manage API keys for assigned projects
+   - Can own multiple API keys
+   - Can define and manage rate limits and traffic policies
+     for API keys within their projects
+
+4. Simple User
+   - Can authenticate and access limited functionality
+   - Cannot manage API keys, policies, or users
+
+========================
+3. ORGANIZATION & PROJECT MODEL
+========================
+
+The system must support:
+
+- Multiple organizations
+- Multiple projects per organization
+- Users assigned at organization and/or project level
+
+Hierarchy:
+System
+ └── Organization
+      └── Project
+           └── API Keys
+                └── Rate & Traffic Policies
+
+Each API key:
+- Belongs to exactly one project
+- Inherits organization ownership
+- Is owned by a PA or OA
+- Has one or more associated traffic and rate-limiting policies
+
+========================
+4. API KEY MANAGEMENT
+========================
+
+API keys are implemented as OpenBao tokens.
+
+Requirements:
+- One API key must be associated with one and only one project
+- A user may own multiple API keys
+- API keys must have:
+  - A human-readable reference name
+  - An expiration period (days)
+  - Rotation and revocation support
+- Automatic rotation policies must be supported
+
+========================
+5. RATE LIMITING & TRAFFIC POLICIES
+========================
+
+The system must support correlation of API keys with
+rate limits and traffic control policies.
+
+Requirements:
+- Each API key may be associated with:
+  - Request rate limits (e.g. requests per second/minute)
+  - Traffic quotas (daily/monthly usage)
+  - Burst limits
+  - Throttling rules
+- Rate limits and traffic policies must be:
+  - Defined by Project Admins (project scope)
+  - Defined or overridden by Organization Admins (organization scope)
+- All rate limits and traffic policies must be:
+  - Stored in OpenBao
+  - Versioned and auditable
+  - Linked to API key metadata
+- Policy changes must be enforceable without regenerating the API key
+
+========================
+6. ROLE-BASED BEHAVIOR
+========================
+
+System Owner:
+- Can invite OAs and PAs
+- Can manage realm-level configuration
+- Can view global monitoring dashboards
+
+Organization Admin:
+- Can create projects
+- Can assign PAs to projects
+- Can create API keys
+- Can assign rate limits and traffic policies to API keys
+- Can view all API keys and policies created by PAs
+- Can view organization-wide monitoring dashboards
+
+Project Admin:
+- Can create API keys for assigned projects
+- Can assign reference name and expiration
+- Can assign rate limits and traffic policies
+- Can rotate and revoke their own keys
+- Can view key and policy metadata
+
+========================
+7. UX EXPECTATIONS
+========================
+
+Login:
+- All users authenticate via SSO
+- Role-based UI rendering after login
+
+Organization Admin UX:
+- On login, the OA must be able to:
+  - Select an organization
+  - Select a project from a dropdown list
+  - Create a new project
+  - Assign a Project Admin to a project
+  - Create API keys for a selected project
+  - Configure rate limits and traffic policies
+    for API keys
+
+Project Admin UX:
+- On login, the PA must be able to:
+  - Select a project from a dropdown list
+  - Create API keys for the selected project
+  - Assign:
+    - Reference name
+    - Expiration days
+    - Rate limits
+    - Traffic policies
+
+System Owner UX:
+- UI for:
+  - Realm initialization
+  - Inviting OAs and PAs
+  - Viewing system-wide dashboards
+
+========================
+8. AUDIT & MONITORING
+========================
+
+The system must provide:
+- Audit logs for:
+  - User actions
+  - API key lifecycle events
+  - Rate limit and traffic policy changes
+- Monitoring dashboards:
+  - System-wide (SO)
+  - Organization-level (OA)
+
+All actions must be traceable to a user identity.
+
+========================
+9. TECHNOLOGY CONSTRAINTS
+========================
+
+- Keycloak handles:
+  - Realms
+  - Users
+  - Roles
+  - Groups
+  - SSO
+  - Invitations
+
+- OpenBao handles:
+  - API keys (tokens)
+  - Policies
+  - Rate limits and traffic rules
+  - Rotation
+  - Auditing
+
+
+
+Implement the above for the local installation first so as to test the UI experience 
+In a second step we move this kubernetes. 
+Implement a service in front of OpenBao that will receive rest requests from an authenticated user (token from keyckloak)
+That service should have an API for the crud operations around creating API keys , projects , traffic policies and everything 
+Create also a small sql database to keep track of project and organizatio configurations.

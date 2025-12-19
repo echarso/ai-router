@@ -1,0 +1,71 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tinyllama
+  namespace: ai
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tinyllama
+  template:
+    metadata:
+      labels:
+        app: tinyllama
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:latest
+          imagePullPolicy: IfNotPresent
+          args:
+            - "--model"
+            - "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+            - "--served-model-name"
+            - "TinyLlama"
+            - "--host"
+            - "0.0.0.0"
+            - "--port"
+            - "8000"
+            - "--max-model-len"
+            - "2048"
+            - "--device"
+            - "cpu"
+            - "--dtype"
+            - "float32"
+          ports:
+            - containerPort: 8000
+              name: http
+          resources:
+            requests:
+              cpu: "2"
+              memory: "4Gi"
+            limits:
+              cpu: "4"
+              memory: "8Gi"
+          readinessProbe:
+            httpGet:
+              path: /v1/models
+              port: 8000
+            initialDelaySeconds: 60
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 120
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tinyllama
+  namespace: ai
+spec:
+  type: ClusterIP
+  selector:
+    app: tinyllama
+  ports:
+    - name: http
+      port: 8000
+      targetPort: 8000
+

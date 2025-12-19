@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-gateway-nodeport
+  namespace: envoy-gateway-system
+  labels:
+    app: ai-gateway-nodeport
+spec:
+  type: NodePort
+  # The Envoy data-plane Service is created by Envoy Gateway.
+  # We expose it via NodePort by selecting the same pods for the `ai-gateway` Gateway.
+  selector:
+    gateway.envoyproxy.io/owning-gateway-name: ai-gateway
+  ports:
+    - name: http-1975
+      port: 1975
+      targetPort: 1975
+      nodePort: 31975
+

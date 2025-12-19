@@ -1,0 +1,141 @@
+.organization-management {
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.organization-management h2 {
+  margin-bottom: 20px;
+}
+
+.actions-section {
+  margin-bottom: 20px;
+}
+
+.create-org-button,
+.submit-button,
+.delete-button {
+  padding: 8px 16px;
+  background: var(--button-gradient);
+  color: var(--button-text, #ffffff);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  transition: filter 0.2s, transform 0.2s;
+}
+
+.create-org-button:hover:not(:disabled),
+.submit-button:hover:not(:disabled) {
+  filter: brightness(0.95);
+  transform: translateY(-1px);
+}
+
+.delete-button {
+  background: #dc3545;
+  color: #ffffff;
+}
+
+.delete-button:hover {
+  background: #c82333;
+}
+
+.create-org-form,
+.assign-user-form {
+  background: var(--bg-secondary);
+  padding: 20px;
+  border-radius: 8px;
+  margin-bottom: 30px;
+  display: flex;
+  gap: 15px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.assign-user-section {
+  margin-bottom: 30px;
+  padding: 20px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+}
+
+.assign-user-section h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-group label {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.form-group select,
+.form-group input,
+.form-group textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 14px;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.form-group textarea {
+  resize: vertical;
+  font-family: inherit;
+}
+
+.organizations-list {
+  margin-top: 30px;
+}
+
+.organizations-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+}
+
+.organizations-table th,
+.organizations-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.organizations-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+/* Organization (OA) view: make Projects header transparent */
+.org-panel-projects .organizations-table thead,
+.org-panel-projects .organizations-table th {
+  background: transparent !important;
+}
+
+.error-message {
+  background: #fee;
+  color: #c33;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+  color: #666;
+}
+
+.no-orgs {
+  text-align: center;
+  padding: 20px;
+  color: #999;
+}

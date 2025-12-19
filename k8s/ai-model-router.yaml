@@ -1,0 +1,98 @@
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: EnvoyPatchPolicy
+metadata:
+  name: openai-model-router-lua
+  namespace: price-runner
+spec:
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: bestai-gateway
+  type: JSONPatch
+  jsonPatches:
+    # Insert a Lua filter before the router to inspect JSON body { "model": "..." }
+    - type: "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager"
+      name: envoy.filters.network.http_connection_manager
+      operation:
+        op: add
+        path: /http_filters/0
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            "@type": type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inline_code: |
+              function envoy_on_request(request_handle)
+                local path = request_handle:headers():get(":path") or ""
+                if string.sub(path, 1, 4) ~= "/v1/" then
+                  return
+                end
+
+                local body = request_handle:body()
+                if body == nil then
+                  return
+                end
+                local s = body:getBytes(0, body:length())
+                if s == nil then
+                  return
+                end
+
+                local m = string.match(s, [["model"%s*:%s*"([^"]+)"]])
+                if m == nil then
+                  return
+                end
+
+                if m == "custom_model" then
+                  request_handle:headers():add("x-target-upstream", "custom-fastapi")
+                elseif m == "TinyLlama" then
+                  request_handle:headers():add("x-target-upstream", "vllm-tinyllama")
+                end
+              end
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openai-inference-route
+  namespace: price-runner
+  annotations:
+    gateway.envoyproxy.io/route-priority: "110"
+spec:
+  parentRefs:
+    - name: bestai-gateway
+      sectionName: http
+  hostnames:
+    - bestai.se
+  rules:
+    # Route to custom-fastapi when model == custom_model
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+          headers:
+            - name: x-target-upstream
+              value: custom-fastapi
+      backendRefs:
+        - name: custom-fastapi
+          port: 8000
+          weight: 100
+    # Route to vLLM when model == TinyLlama
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+          headers:
+            - name: x-target-upstream
+              value: vllm-tinyllama
+      backendRefs:
+        - name: vllm-tinyllama
+          port: 8000
+          weight: 100
+    # Default: send to vLLM
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /v1
+      backendRefs:
+        - name: vllm-tinyllama
+          port: 8000
+          weight: 100
+

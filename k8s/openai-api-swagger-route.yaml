@@ -1,0 +1,38 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: openai-api-swagger-route
+  namespace: price-runner
+  annotations:
+    gateway.envoyproxy.io/route-priority: "100"
+spec:
+  parentRefs:
+  - name: bestai-gateway
+    sectionName: http
+  hostnames:
+  - bestai.se
+  rules:
+  - matches:
+    - path:
+        type: Exact
+        value: /docs
+    backendRefs:
+    - name: openai-api-service
+      port: 3000
+      weight: 100
+  - matches:
+    - path:
+        type: Exact
+        value: /swagger
+    backendRefs:
+    - name: openai-api-service
+      port: 3000
+      weight: 100
+  - matches:
+    - path:
+        type: Exact
+        value: /openapi.json
+    backendRefs:
+    - name: openai-api-service
+      port: 3000
+      weight: 100

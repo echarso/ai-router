@@ -1,0 +1,11 @@
+
+Add AI GW Done
+Mocke OpenAI done 
+Next add the extProc go service and be in position to see logs
+Make a connection to Graphana which is not working . 
+Deploy a local lamma for simple inference. 
+Add API-KEY and GROUP Management,
+LLM inference monitoing 
+
+
+2 Weeks 

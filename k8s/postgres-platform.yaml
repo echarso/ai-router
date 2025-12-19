@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-platform
+  namespace: price-runner
+  labels:
+    app: postgres-platform
+spec:
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: 5432
+  selector:
+    app: postgres-platform
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-platform
+  namespace: price-runner
+spec:
+  serviceName: postgres-platform
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres-platform
+  template:
+    metadata:
+      labels:
+        app: postgres-platform
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15-alpine
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: platform_db
+            - name: POSTGRES_USER
+              value: platform_user
+            - name: POSTGRES_PASSWORD
+              value: platform_pass
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U platform_user -d platform_db"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U platform_user -d platform_db"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 1Gi

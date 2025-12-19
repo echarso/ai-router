@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-auth-service
+  namespace: price-runner
+  labels:
+    app: backend-auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend-auth-service
+  template:
+    metadata:
+      labels:
+        app: backend-auth-service
+    spec:
+      containers:
+        - name: backend-auth-service
+          image: price-runner-auth-service:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5007
+              name: http
+          env:
+            - name: PORT
+              value: "5007"
+            - name: DB_HOST
+              value: postgres-platform
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: platform_db
+            - name: DB_USER
+              value: platform_user
+            - name: DB_PASSWORD
+              value: platform_pass
+            - name: KEYCLOAK_URL
+              value: http://keycloak:8080/keycloak
+            - name: KEYCLOAK_REALM
+              value: bestai
+            - name: KEYCLOAK_ADMIN
+              value: admin
+            - name: KEYCLOAK_ADMIN_PASSWORD
+              value: admin
+            - name: OPENBAO_URL
+              value: http://openbao:8200
+            - name: OPENBAO_TOKEN
+              value: root-token
+            - name: OPENBAO_MOUNT_PATH
+              value: secret
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5007
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5007
+            initialDelaySeconds: 10
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-auth-service
+  namespace: price-runner
+  labels:
+    app: backend-auth-service
+spec:
+  type: ClusterIP
+  selector:
+    app: backend-auth-service
+  ports:
+    - name: http
+      port: 5007
+      targetPort: 5007

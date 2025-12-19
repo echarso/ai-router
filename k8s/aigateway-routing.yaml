@@ -1,0 +1,67 @@
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: vllm-tinyllama-backend
+  namespace: price-runner
+spec:
+  schema:
+    name: OpenAI
+    version: "v1"
+  backendRef:
+    name: vllm-tinyllama
+    kind: Service
+    group: ""
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIServiceBackend
+metadata:
+  name: custom-fastapi-backend
+  namespace: price-runner
+spec:
+  schema:
+    name: OpenAI
+    version: "v1"
+  backendRef:
+    name: custom-fastapi
+    kind: Service
+    group: ""
+---
+apiVersion: aigateway.envoyproxy.io/v1alpha1
+kind: AIGatewayRoute
+metadata:
+  name: openai-model-router
+  namespace: price-runner
+spec:
+  parentRefs:
+    - name: bestai-gateway
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    # Route by model name (Envoy AI Gateway uses OpenAI semantics)
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: custom_model
+      backendRefs:
+        - name: custom-fastapi-backend
+          kind: AIServiceBackend
+          group: aigateway.envoyproxy.io
+          weight: 100
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: TinyLlama
+      backendRefs:
+        - name: vllm-tinyllama-backend
+          kind: AIServiceBackend
+          group: aigateway.envoyproxy.io
+          weight: 100
+    # Default to TinyLlama backend
+    - backendRefs:
+        - name: vllm-tinyllama-backend
+          kind: AIServiceBackend
+          group: aigateway.envoyproxy.io
+          weight: 100
+

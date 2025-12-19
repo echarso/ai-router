@@ -1,0 +1,267 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-connections-dashboard
+  namespace: price-runner
+data:
+  connections-dashboard.json: |
+    {
+      "dashboard": {
+        "title": "Web App & API Connections",
+        "tags": ["price-runner", "connections", "envoy"],
+        "timezone": "browser",
+        "schemaVersion": 27,
+        "version": 1,
+        "refresh": "10s",
+        "panels": [
+          {
+            "id": 1,
+            "title": "Frontend (Web App) Requests",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"http\",envoy_response_code!~\"4xx|5xx\"}[1m])) by (envoy_response_code_class)",
+                "legendFormat": "{{envoy_response_code_class}}xx",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "reqps",
+                "label": "Requests per second",
+                "min": 0
+              },
+              {
+                "format": "short",
+                "show": false
+              }
+            ],
+            "xaxis": {
+              "mode": "time",
+              "show": true
+            },
+            "legend": {
+              "show": true,
+              "values": true,
+              "current": true,
+              "avg": true,
+              "max": true,
+              "min": true
+            }
+          },
+          {
+            "id": 2,
+            "title": "OpenAI API Requests",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"http\",envoy_route_name=~\".*openai.*|.*v1.*\"}[1m])) by (envoy_response_code_class)",
+                "legendFormat": "{{envoy_response_code_class}}xx",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "reqps",
+                "label": "Requests per second",
+                "min": 0
+              },
+              {
+                "format": "short",
+                "show": false
+              }
+            ],
+            "xaxis": {
+              "mode": "time",
+              "show": true
+            },
+            "legend": {
+              "show": true,
+              "values": true,
+              "current": true,
+              "avg": true,
+              "max": true,
+              "min": true
+            }
+          },
+          {
+            "id": 3,
+            "title": "Total Frontend Connections",
+            "type": "stat",
+            "gridPos": {"x": 0, "y": 8, "w": 6, "h": 4},
+            "targets": [
+              {
+                "expr": "sum(increase(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"http\",envoy_route_name=~\".*frontend.*\"}[5m]))",
+                "refId": "A"
+              }
+            ],
+            "format": "short",
+            "valueName": "current"
+          },
+          {
+            "id": 4,
+            "title": "Total OpenAI API Connections",
+            "type": "stat",
+            "gridPos": {"x": 6, "y": 8, "w": 6, "h": 4},
+            "targets": [
+              {
+                "expr": "sum(increase(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"http\",envoy_route_name=~\".*openai.*|.*v1.*\"}[5m]))",
+                "refId": "A"
+              }
+            ],
+            "format": "short",
+            "valueName": "current"
+          },
+          {
+            "id": 5,
+            "title": "Frontend Request Rate",
+            "type": "stat",
+            "gridPos": {"x": 12, "y": 8, "w": 6, "h": 4},
+            "targets": [
+              {
+                "expr": "sum(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"http\",envoy_route_name=~\".*frontend.*\"}[1m]))",
+                "refId": "A"
+              }
+            ],
+            "format": "reqps",
+            "valueName": "current"
+          },
+          {
+            "id": 6,
+            "title": "OpenAI API Request Rate",
+            "type": "stat",
+            "gridPos": {"x": 18, "y": 8, "w": 6, "h": 4},
+            "targets": [
+              {
+                "expr": "sum(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"http\",envoy_route_name=~\".*openai.*|.*v1.*\"}[1m]))",
+                "refId": "A"
+              }
+            ],
+            "format": "reqps",
+            "valueName": "current"
+          },
+          {
+            "id": 7,
+            "title": "HTTP Status Codes - All Services",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 12, "w": 24, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(rate(envoy_http_downstream_rq_total{envoy_http_conn_manager_prefix=\"http\"}[1m])) by (envoy_response_code_class)",
+                "legendFormat": "{{envoy_response_code_class}}xx",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "reqps",
+                "label": "Requests per second",
+                "min": 0
+              },
+              {
+                "format": "short",
+                "show": false
+              }
+            ],
+            "xaxis": {
+              "mode": "time",
+              "show": true
+            },
+            "legend": {
+              "show": true,
+              "values": true,
+              "current": true,
+              "avg": true,
+              "max": true,
+              "min": true
+            },
+            "stack": true,
+            "nullPointMode": "null"
+          },
+          {
+            "id": 8,
+            "title": "Active Connections",
+            "type": "graph",
+            "gridPos": {"x": 0, "y": 20, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "sum(envoy_http_downstream_cx_active{envoy_http_conn_manager_prefix=\"http\"}) by (envoy_route_name)",
+                "legendFormat": "{{envoy_route_name}}",
+                "refId": "A"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "short",
+                "label": "Active Connections",
+                "min": 0
+              },
+              {
+                "format": "short",
+                "show": false
+              }
+            ],
+            "xaxis": {
+              "mode": "time",
+              "show": true
+            },
+            "legend": {
+              "show": true,
+              "values": true,
+              "current": true,
+              "avg": true,
+              "max": true,
+              "min": true
+            }
+          },
+          {
+            "id": 9,
+            "title": "Request Latency (P50, P95, P99)",
+            "type": "graph",
+            "gridPos": {"x": 12, "y": 20, "w": 12, "h": 8},
+            "targets": [
+              {
+                "expr": "histogram_quantile(0.50, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix=\"http\"}[1m])) by (le, envoy_route_name))",
+                "legendFormat": "P50 - {{envoy_route_name}}",
+                "refId": "A"
+              },
+              {
+                "expr": "histogram_quantile(0.95, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix=\"http\"}[1m])) by (le, envoy_route_name))",
+                "legendFormat": "P95 - {{envoy_route_name}}",
+                "refId": "B"
+              },
+              {
+                "expr": "histogram_quantile(0.99, sum(rate(envoy_http_downstream_rq_time_bucket{envoy_http_conn_manager_prefix=\"http\"}[1m])) by (le, envoy_route_name))",
+                "legendFormat": "P99 - {{envoy_route_name}}",
+                "refId": "C"
+              }
+            ],
+            "yaxes": [
+              {
+                "format": "ms",
+                "label": "Latency (ms)",
+                "min": 0
+              },
+              {
+                "format": "short",
+                "show": false
+              }
+            ],
+            "xaxis": {
+              "mode": "time",
+              "show": true
+            },
+            "legend": {
+              "show": true,
+              "values": true,
+              "current": true,
+              "avg": true,
+              "max": true,
+              "min": true
+            }
+          }
+        ]
+      }
+    }
